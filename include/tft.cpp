@@ -1,9 +1,7 @@
-
+#include "globalVar.h"
 #include "tft_callibration.cpp"
 #include "tft_interface.cpp"
-
-float lcdT1 = 0;
-
+#include "Arduino.h"
 lv_obj_t *screenMain, *screenRect;
 
 enum but
@@ -13,43 +11,48 @@ enum but
 };
 
 const int countButtons = 10;
-
 lv_obj_t* buttons[countButtons];
+
+lv_obj_t *txtTemp[4];
+
 
 void lv_ex_win_main(void);
 void lv_ex_win_1_peregon(void);
+void TaskUpdateValue(void *pvParameters);
 
 
 void tftSetup()
 {
     InitGraphics();
 
-    lv_ex_win_main();
 
+    lv_ex_win_main();
+    lv_ex_win_1_peregon();
+    vTaskDelay(1000);
     lv_scr_load(screenMain);
 
-    xTaskCreate( TaskTft, "task tft", 8000, NULL, 3, NULL);
-    lv_ex_win_1_peregon();
-
+    xTaskCreate( TaskUpdateValue, "task update value", 8000, NULL, 3, NULL);
 }
 
 
 
-void TaskTft(void *pvParameters)
+void TaskUpdateValue(void *pvParameters)
 {
+    (void) pvParameters;
+
     static float pLcdT = 0;
-     (void) pvParameters;
     for(;;)
     {
-        if(pLcdT != lcdT1)
-        {            
-            char buffer [33];
-            ftoa(lcdT1,buffer,4);
-            lv_label_set_text(txt, buffer);
+        if((pLcdT != sensors.getTempCByIndex(0)) && (txtTemp[0] != 0))
+        {
+            String str(sensors.getTempCByIndex(0));
+            char buf[str.length()+1];
+            str.toCharArray(buf, str.length()+1);
+            lv_label_set_text(txtTemp[0], buf);
         }
-        pLcdT = lcdT1;
+        pLcdT = sensors.getTempCByIndex(0);
 
-        vTaskDelay(300);
+        vTaskDelay(1000);
     }
 }
 
@@ -131,8 +134,8 @@ void lv_ex_win_main(void)
 
 
     /*Add some dummy content*/
-    txt = lv_label_create(tab1, NULL);
-    lv_label_set_text(txt, " ");
+    txtTemp[0] = lv_label_create(tab1, NULL);
+    lv_label_set_text(txtTemp[0], " ");
 }
 
 void lv_ex_win_1_peregon(void)

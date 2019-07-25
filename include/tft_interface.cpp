@@ -22,8 +22,6 @@ boolean pressTouch = false;
 void TaskTft(void *pvParameters);
 void TaskTftHandler(void *pvParameters);
 
-lv_obj_t *txt;
-
 void InitGraphics()
 {
     lv_init();
@@ -50,6 +48,7 @@ void InitGraphics()
 
     lv_theme_t * th = lv_theme_night_init(210, &lv_font_roboto_16);     //Set a HUE value and a Font for the Night Theme
     lv_theme_set_current(th); 
+    
     /*Initialize the graphics library's tick*/
     tick.attach_ms(LVGL_TICK_PERIOD, lv_tick_handler);
     xTaskCreate( TaskTftHandler, "task tft handler", 8000, NULL, 2, NULL);

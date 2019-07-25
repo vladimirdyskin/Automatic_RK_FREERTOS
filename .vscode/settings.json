@@ -1,0 +1,6 @@
+{
+    "terminal.integrated.env.osx": {
+        "PATH": "/Volumes/Data/vladimirdyskin/.platformio/penv/bin:/Volumes/Data/vladimirdyskin/.platformio/penv:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/X11/bin:/Applications/VMware Fusion.app/Contents/Public",
+        "PLATFORMIO_CALLER": "vscode"
+    }
+}
