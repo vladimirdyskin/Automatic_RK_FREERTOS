@@ -2,7 +2,7 @@
 #include "tft_callibration.cpp"
 #include "tft_interface.cpp"
 #include "Arduino.h"
-lv_obj_t *screenMain, *screenRect;
+
 
 enum but
 {
@@ -12,9 +12,11 @@ enum but
 
 const int countButtons = 10;
 lv_obj_t* buttons[countButtons];
-
+lv_obj_t *win; 
 lv_obj_t *txtTemp[4];
-
+lv_obj_t *screenMain, *screenRect;
+extern float tempValue[5];
+extern void publishValueMqtt();
 
 void lv_ex_win_main(void);
 void lv_ex_win_1_peregon(void);
@@ -24,7 +26,6 @@ void TaskUpdateValue(void *pvParameters);
 void tftSetup()
 {
     InitGraphics();
-
 
     lv_ex_win_main();
     lv_ex_win_1_peregon();
@@ -43,15 +44,14 @@ void TaskUpdateValue(void *pvParameters)
     static float pLcdT = 0;
     for(;;)
     {
-        if((pLcdT != sensors.getTempCByIndex(0)) && (txtTemp[0] != 0))
+        if((pLcdT != tempValue[0]) && (txtTemp[0] != 0) /* && val != -127 && val != 85*/)
         {
-            String str(sensors.getTempCByIndex(0));
-            char buf[str.length()+1];
-            str.toCharArray(buf, str.length()+1);
+            char buf[40];
+            snprintf(buf, 40,"Temp1: %.2f", tempValue[0]);
             lv_label_set_text(txtTemp[0], buf);
+            publishValueMqtt();
         }
-        pLcdT = sensors.getTempCByIndex(0);
-
+        pLcdT = tempValue[0];
         vTaskDelay(1000);
     }
 }
@@ -97,44 +97,18 @@ static void my_event_cb(lv_obj_t * obj, lv_event_t event)
 void lv_ex_win_main(void)
 {
     screenMain = lv_obj_create(NULL, NULL);
-
     /*Create a window*/
-    lv_obj_t * win = lv_win_create(screenMain, NULL);
-
-    lv_win_set_title(win, "Temp sensor");                        /*Set the title*/
-
-
+    win = lv_win_create(screenMain, NULL);
+    lv_win_set_title(win, "Temp sensor"); 
     /*Add control button to the header*/
     lv_obj_t * close_btn = lv_win_add_btn(win, LV_SYMBOL_CLOSE);           /*Add close button and use built-in close action*/
-    buttons[but::butCloseMain] = close_btn;
+    buttons[but::butCloseRect] = close_btn;
     lv_obj_set_event_cb(close_btn, my_event_cb);
     lv_win_add_btn(win, LV_SYMBOL_SETTINGS);        /*Add a setup button*/
 
-    /*Create a Tab view object*/
-    lv_obj_t *tabview;
-    tabview = lv_tabview_create(win, NULL);
-
-    /*Add 3 tabs (the tabs are page (lv_page) and can be scrolled*/
-    lv_obj_t *tab1 = lv_tabview_add_tab(tabview, "Tab 1");
-    lv_obj_t *tab2 = lv_tabview_add_tab(tabview, "Tab 2");
-    lv_obj_t *tab3 = lv_tabview_add_tab(tabview, "Tab 3");
-
-
-    /*Add content to the tabs*/
-    lv_obj_t * label = lv_label_create(tab1, NULL);
-    lv_label_set_text(label, "\nThis the first tab\n\n"
-                             "If the content\n"
-                             "scrollable.");
-
-    label = lv_label_create(tab2, NULL);
-    lv_label_set_text(label, "Second tab");
-
-    label = lv_label_create(tab3, NULL);
-    lv_label_set_text(label, "Third tab");
-
-
+    /*Set the title*/
     /*Add some dummy content*/
-    txtTemp[0] = lv_label_create(tab1, NULL);
+    txtTemp[0] = lv_label_create(win, NULL);
     lv_label_set_text(txtTemp[0], " ");
 }
 

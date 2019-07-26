@@ -4,12 +4,14 @@
 #include "globalVar.h"
 #include "tft.cpp"
 #include "mqtt.cpp"
+#include "ESPUI.h"
 // Include the libraries we need
 
 
 void TaskTemp(void *pvParameters);
 void TaskBlink( void *pvParameters );
 void TaskPrintTemp(void *pvParameters);
+float tempValue[5];
 
 void setup() {
   // put your setup code here, to run once:
@@ -18,10 +20,12 @@ void setup() {
   tftSetup();
   setupMqtt();
 
+  sensors.setWaitForConversion(false);
   sensors.begin();
-  
   xTaskCreate( TaskTemp, "task temp", 2000, NULL, 2, NULL);
   //xTaskCreatePinnedToCore( TaskBlink, "task blink", configMINIMAL_STACK_SIZE, NULL, 2, NULL, 0);
+
+  ESPUI.begin("OK");
 }
 
 void TaskTemp(void *pvParameters)
@@ -29,11 +33,8 @@ void TaskTemp(void *pvParameters)
   (void) pvParameters;
   for(;;)
   {
-    sensors.requestTemperatures();    
-    // for(int i = 0; i < 5; i++)
-    // {
-    //   Serial.println(sensors.getTempCByIndex(i));
-    // }
+    sensors.requestTemperatures();
+    tempValue[0] = sensors.getTempCByIndex(0);
     vTaskDelay(3000);
   }
 }
