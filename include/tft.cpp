@@ -1,25 +1,32 @@
-#include "globalVar.h"
 #include "tft_callibration.cpp"
 #include "tft_interface.cpp"
 #include "Arduino.h"
+#include <WiFi.h>
 
 
 enum but
 {
     butCloseMain,
-    butCloseRect
+    butSettingsMain,
+    butSettingsWiFiMain,
+    butCloseSettingsWiFi,
+    butCloseRect,
+    butCloseSettings
 };
 
 const int countButtons = 10;
 lv_obj_t* buttons[countButtons];
+
 lv_obj_t *win; 
-lv_obj_t *txtTemp[4];
-lv_obj_t *screenMain, *screenRect;
+lv_obj_t *txtTemp[4], *txtIpAdress, *txtSignalStrech;
+lv_obj_t *screenMain, *screenRect, *screenSettingsWiFi, *screenSettings;
 extern float tempValue[5];
 extern void publishValueMqtt();
 
 void lv_ex_win_main(void);
 void lv_ex_win_1_peregon(void);
+void lv_ex_win_settings(void);
+void lv_ex_win_settingswifi(void);
 void TaskUpdateValue(void *pvParameters);
 
 
@@ -29,6 +36,9 @@ void tftSetup()
 
     lv_ex_win_main();
     lv_ex_win_1_peregon();
+    lv_ex_win_settings();
+    lv_ex_win_settingswifi();
+
     vTaskDelay(1000);
     lv_scr_load(screenMain);
 
@@ -47,11 +57,23 @@ void TaskUpdateValue(void *pvParameters)
         if((pLcdT != tempValue[0]) && (txtTemp[0] != 0) /* && val != -127 && val != 85*/)
         {
             char buf[40];
-            snprintf(buf, 40,"Temp1: %.2f", tempValue[0]);
+            snprintf(buf, 40,"%.2f", tempValue[0]);
             lv_label_set_text(txtTemp[0], buf);
             publishValueMqtt();
         }
         pLcdT = tempValue[0];
+
+        if(lv_scr_act() == screenSettingsWiFi)
+        {
+            String s1(WiFi.localIP().toString());
+            char buf[s1.length()+1];
+            s1.toCharArray(buf, s1.length()+1);          
+            lv_label_set_text(txtIpAdress, buf);
+
+            char buf2[8];
+            sprintf(buf2, "%d", WiFi.RSSI());
+            lv_label_set_text(txtSignalStrech, buf2);            
+        }
         vTaskDelay(1000);
     }
 }
@@ -63,13 +85,27 @@ static void my_event_cb(lv_obj_t * obj, lv_event_t event)
         case LV_EVENT_PRESSED:
                 if(obj == buttons[but::butCloseMain])
                 {
-                   lv_scr_load(screenRect);
-                   Serial.println("Press close win\n");            
+                    lv_scr_load(screenRect);
                 }
                 if(obj == buttons[but::butCloseRect])
                 {
-                   lv_scr_load(screenMain);
-                   Serial.println("Press close rect\n");            
+                    lv_scr_load(screenMain);
+                }
+                if(obj == buttons[but::butCloseSettingsWiFi])
+                {
+                    lv_scr_load(screenMain);
+                }
+                if(obj == buttons[but::butSettingsWiFiMain])
+                {
+                    lv_scr_load(screenSettingsWiFi);
+                }
+                if(obj == buttons[but::butSettingsMain])
+                {
+                    lv_scr_load(screenSettings);
+                }
+                if(obj == buttons[but::butCloseSettings])
+                {
+                    lv_scr_load(screenMain);
                 }
             break;
 
@@ -77,19 +113,15 @@ static void my_event_cb(lv_obj_t * obj, lv_event_t event)
             break;
 
         case LV_EVENT_CLICKED:
-            Serial.println("Clicked\n");
             break;
 
         case LV_EVENT_LONG_PRESSED:
-            Serial.println("Long press\n");
             break;
 
         case LV_EVENT_LONG_PRESSED_REPEAT:
-            Serial.println("Long press repeat\n");
             break;
 
         case LV_EVENT_RELEASED:
-            Serial.println("Released\n");
             break;
     }      /*Etc.*/
 }
@@ -99,18 +131,85 @@ void lv_ex_win_main(void)
     screenMain = lv_obj_create(NULL, NULL);
     /*Create a window*/
     win = lv_win_create(screenMain, NULL);
-    lv_win_set_title(win, "Temp sensor"); 
+    lv_win_set_title(win, " RK System "); 
     /*Add control button to the header*/
-    lv_obj_t * close_btn = lv_win_add_btn(win, LV_SYMBOL_CLOSE);           /*Add close button and use built-in close action*/
-    buttons[but::butCloseRect] = close_btn;
-    lv_obj_set_event_cb(close_btn, my_event_cb);
-    lv_win_add_btn(win, LV_SYMBOL_SETTINGS);        /*Add a setup button*/
+    // buttons[but::butCloseMain] = lv_win_add_btn(win, LV_SYMBOL_CLOSE);           /*Add close button and use built-in close action*/
+    // lv_obj_set_event_cb(buttons[but::butCloseMain], my_event_cb);
+    buttons[but::butSettingsMain] = lv_win_add_btn(win, LV_SYMBOL_SETTINGS);        /*Add a setup button*/
+    lv_obj_set_event_cb(buttons[but::butSettingsMain], my_event_cb);
+    buttons[but::butSettingsWiFiMain] = lv_win_add_btn(win, LV_SYMBOL_WIFI);
+    lv_obj_set_event_cb(buttons[but::butSettingsWiFiMain], my_event_cb);
 
     /*Set the title*/
     /*Add some dummy content*/
+    lv_obj_t *label = lv_label_create(win, NULL);
+    lv_label_set_text(label, "Temp1");
+    lv_obj_set_pos(label, 30, 30);
+
     txtTemp[0] = lv_label_create(win, NULL);
-    lv_label_set_text(txtTemp[0], " ");
+    lv_label_set_text(txtTemp[0], "");
+    lv_obj_set_pos(txtTemp[0], 100, 30);
 }
+
+void lv_ex_win_settingswifi(void)
+{
+    screenSettingsWiFi = lv_obj_create(NULL, NULL);
+    /*Create a window*/
+    lv_obj_t * win = lv_win_create(screenSettingsWiFi, NULL);
+    lv_win_set_title(win, "Settings WIFI");                        /*Set the title*/
+
+    /*Add control button to the header*/
+    lv_obj_t * close_btn = lv_win_add_btn(win, LV_SYMBOL_CLOSE);           /*Add close button and use built-in close action*/
+    buttons[but::butCloseSettingsWiFi] = close_btn;
+    lv_obj_set_event_cb(close_btn, my_event_cb);
+
+    lv_obj_t *label = lv_label_create(win, NULL);
+    lv_obj_set_pos(label, 30, 30);
+    lv_label_set_text(label, "IP: ");
+
+    txtIpAdress = lv_label_create(win, NULL);
+    lv_obj_set_pos(txtIpAdress, 100, 30);
+    lv_label_set_text(txtIpAdress, "0.0.0.0");
+
+    label = lv_label_create(win, NULL);
+    lv_obj_set_pos(label, 30, 50);
+    lv_label_set_text(label, "Signal:");
+
+    txtSignalStrech = lv_label_create(win, NULL);
+    lv_obj_set_pos(txtSignalStrech, 100, 50);
+    lv_label_set_text(txtSignalStrech, "0.0.0.0");
+
+}
+
+void lv_ex_win_settings(void)
+{
+    screenSettings = lv_obj_create(NULL, NULL);
+    /*Create a window*/
+    lv_obj_t * win = lv_win_create(screenSettings, NULL);
+    lv_win_set_title(win, "Settings");                        /*Set the title*/
+
+    /*Add control button to the header*/
+    buttons[but::butCloseSettings] = lv_win_add_btn(win, LV_SYMBOL_CLOSE);           /*Add close button and use built-in close action*/
+    lv_obj_set_event_cb(buttons[but::butCloseSettings], my_event_cb);
+
+    lv_obj_t *label = lv_label_create(win, NULL);
+    lv_obj_set_pos(label, 30, 30);
+    lv_label_set_text(label, "Settings: ");
+
+    // txtIpAdress = lv_label_create(win, NULL);
+    // lv_obj_set_pos(txtIpAdress, 100, 30);
+    // lv_label_set_text(txtIpAdress, "0.0.0.0");
+
+    // label = lv_label_create(win, NULL);
+    // lv_obj_set_pos(label, 30, 50);
+    // lv_label_set_text(label, "Signal:");
+
+    // txtSignalStrech = lv_label_create(win, NULL);
+    // lv_obj_set_pos(txtSignalStrech, 100, 50);
+    // lv_label_set_text(txtSignalStrech, "0.0.0.0");
+
+}
+
 
 void lv_ex_win_1_peregon(void)
 {
@@ -118,7 +217,6 @@ void lv_ex_win_1_peregon(void)
     /*Create a window*/
     lv_obj_t * win = lv_win_create(screenRect, NULL);
     lv_win_set_title(win, "1 peregon");                        /*Set the title*/
-
 
     /*Add control button to the header*/
     lv_obj_t * close_btn = lv_win_add_btn(win, LV_SYMBOL_CLOSE);           /*Add close button and use built-in close action*/

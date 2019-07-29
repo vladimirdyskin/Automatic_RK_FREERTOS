@@ -1,4 +1,3 @@
-#include "globalVar.h"
 #include <WiFi.h>
 #include <WiFiClient.h>
 
@@ -20,7 +19,7 @@ char topic[150];
 // Space to store values to send
 char str_sensor[10];
 
-extern lv_obj_t *win; 
+extern lv_obj_t *win, *txtIpAdress, *txtSignalStrech; 
 extern float tempValue[5];
 
 WiFiClient ubidots;
@@ -121,11 +120,6 @@ void WiFiEvent(WiFiEvent_t event)
           Serial.println("WiFi connected");
           Serial.println("IP address: ");
           Serial.println(WiFi.localIP());
-          String s1("RK System     IP " + WiFi.localIP().toString());
-
-          char buf[s1.length()+1];
-          s1.toCharArray(buf, s1.length()+1);
-          lv_win_set_title(win, buf);
       }
       break;
       case SYSTEM_EVENT_STA_DISCONNECTED:
