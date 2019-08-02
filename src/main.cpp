@@ -3,7 +3,7 @@
 #include <Arduino.h>
 #include "tft.cpp"
 #include "mqtt.cpp"
-#include "ESPUI.h"
+//#include "ESPUI.h"
 
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -34,7 +34,7 @@ void setup() {
   xTaskCreate( TaskTemp, "task temp", 2000, NULL, 2, NULL);
   //xTaskCreatePinnedToCore( TaskBlink, "task blink", configMINIMAL_STACK_SIZE, NULL, 2, NULL, 0);
 
-  ESPUI.begin("OK");
+//  ESPUI.begin("OK");
 }
 
 void TaskTemp(void *pvParameters)

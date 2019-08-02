@@ -52,9 +52,10 @@ void TaskUpdateValue(void *pvParameters)
     (void) pvParameters;
 
     static float pLcdT = 0;
+    static float pLcd2 = 0;
     for(;;)
     {
-        if((pLcdT != tempValue[0]) && (txtTemp[0] != 0) /* && val != -127 && val != 85*/)
+        if((pLcdT != tempValue[0]) && (txtTemp[0] != 0))
         {
             char buf[40];
             snprintf(buf, 40,"%.2f", tempValue[0]);
@@ -62,6 +63,14 @@ void TaskUpdateValue(void *pvParameters)
             publishValueMqtt();
         }
         pLcdT = tempValue[0];
+        if((pLcd2 != tempValue[1]) && (txtTemp[1] != 0))
+        {
+            char buf[40];
+            snprintf(buf, 40,"%.2f", tempValue[1]);
+            lv_label_set_text(txtTemp[1], buf);
+            publishValueMqtt();
+        }
+        pLcd2 = tempValue[1];
 
         if(lv_scr_act() == screenSettingsWiFi)
         {
@@ -149,6 +158,15 @@ void lv_ex_win_main(void)
     txtTemp[0] = lv_label_create(win, NULL);
     lv_label_set_text(txtTemp[0], "");
     lv_obj_set_pos(txtTemp[0], 100, 30);
+
+    label = lv_label_create(win, NULL);
+    lv_label_set_text(label, "Temp2");
+    lv_obj_set_pos(label, 30, 60);
+
+    txtTemp[1] = lv_label_create(win, NULL);
+    lv_label_set_text(txtTemp[1], "");
+    lv_obj_set_pos(txtTemp[1], 100, 60);
+
 }
 
 void lv_ex_win_settingswifi(void)
