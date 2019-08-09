@@ -10,16 +10,16 @@ struct sensorsStruct
 {
     enum typeDevices
     {
-        NotIdent,
-        TempSensor,
-        PlateDriver
+        NotIdent = 0,
+        TempSensor = 1,
+        PlateDriver = 2
     };
     uint8_t macAddr[6] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     typeDevices typeDevice = NotIdent;
     enum answerCommand
     {
-        OK,
-        FAIL
+        OK = 41,
+        FAIL = 42
     };
     bool waitAnswer = false;
     //bool init = false;
@@ -27,6 +27,20 @@ struct sensorsStruct
 
 sensorsStruct sensorsEspNow[20];
 int countSensorsEspNow = 0;
+
+struct __attribute__((packed)) msgStruct
+{
+    sensorsStruct::typeDevices device;
+    enum msgTypes
+    {
+        Data,
+        Connect,
+        Command,
+        Answer
+    } msgType;
+    char valueData[20];
+};
+msgStruct myMsgSensor;
 
 struct __attribute__((packed)) dataStructTempSensor
 {
@@ -39,10 +53,17 @@ struct __attribute__((packed)) dataStructPlateDriver
 {
     enum commandList
     {
-        NONE,
-        POWER_ON,
-        POWER_OFF,
-        SET_POWER
+        NONE = 11,
+        POWER_ON = 12,
+        POWER_OFF = 13,
+        SET_POWER_300 = 14,
+        SET_POWER_500 = 15,
+        SET_POWER_800 = 16,
+        SET_POWER_1000 = 17,
+        SET_POWER_1300 = 18,
+        SET_POWER_1600 = 19,
+        SET_POWER_1800 = 20,
+        SET_POWER_2000 = 21,
     };
     //commandList command;
 };
@@ -96,49 +117,54 @@ void onRecvEspNow(const uint8_t *mac_addr, const uint8_t *data, int data_len)
         Serial.printf("%x ", data[i]);
     }
 
+    memcpy(&myMsgSensor, data, data_len);
+
     int indexCurrent = searchSensorEspNow(mac_addr);
     if (indexCurrent == -1)
     {
         Serial.println("Not Found Esp sensor");
-        addSensorEspNow(mac_addr, sensorsStruct::NotIdent);
+        if (myMsgSensor.msgType == msgStruct::msgTypes::Connect)
+        {
+            addSensorEspNow(mac_addr, myMsgSensor.device);
+            if (myMsgSensor.device == sensorsStruct::typeDevices::PlateDriver)
+            {
+                indexPlateDrive = countSensorsEspNow - 1;
+                myMsgSensor.device = sensorsStruct::typeDevices::PlateDriver;
+                myMsgSensor.msgType = msgStruct::msgTypes::Connect;
+                strcpy(myMsgSensor.valueData, "Hi");
+            }
+            uint8_t bsSend[sizeof(myMsgSensor)];
+            memcpy(bsSend, &myMsgSensor, sizeof(myMsgSensor));
+            ESPNow.send_message(sensorsEspNow[countSensorsEspNow - 1].macAddr, bsSend, sizeof(bsSend));
+        }
     }
     else
     {
-        Serial.println("Esp sensor exist");
-        if (sensorsEspNow[indexCurrent].typeDevice == sensorsStruct::NotIdent)
+        if (myMsgSensor.msgType == msgStruct::msgTypes::Connect)
         {
-            Serial.println("Esp sensor not ident");
-            if (data[0] == sensorsStruct::PlateDriver)
+            if (myMsgSensor.device == sensorsStruct::typeDevices::PlateDriver)
             {
-                Serial.println("Esp sensor is Plate");
-                sensorsEspNow[indexCurrent].typeDevice = sensorsStruct::PlateDriver;
-                indexPlateDrive = indexCurrent;
-                uint8_t bsSend[1] = {sensorsStruct::PlateDriver};
-                ESPNow.send_message(sensorsEspNow[indexCurrent].macAddr, bsSend, sizeof(bsSend));
-                Serial.println("Send Im Here");
+                if (strcmp(myMsgSensor.valueData, "Notinit") > 5)
+                {
+                    myMsgSensor.device = sensorsStruct::typeDevices::PlateDriver;
+                    myMsgSensor.msgType = msgStruct::msgTypes::Connect;
+                    strcpy(myMsgSensor.valueData, "Hi");
+                    uint8_t bsSend[sizeof(myMsgSensor)];
+                    memcpy(bsSend, &myMsgSensor, sizeof(myMsgSensor));
+                    ESPNow.send_message(sensorsEspNow[countSensorsEspNow - 1].macAddr, bsSend, sizeof(bsSend));
+                    Serial.println("Plate reinit");
+                }
+                else
+                {
+                    Serial.println("Plate is online");
+                }
             }
         }
-        if (sensorsEspNow[indexCurrent].waitAnswer)
+        if (myMsgSensor.msgType == msgStruct::msgTypes::Answer)
         {
-            if (sensorsEspNow[indexCurrent].typeDevice == sensorsStruct::typeDevices::PlateDriver)
+            if (myMsgSensor.device == sensorsStruct::typeDevices::PlateDriver)
             {
-                Serial.print("Plate drive  -> ");
-            }
-            if (data[0] == sensorsStruct::answerCommand::OK)
-            {
-                Serial.println("Succes command");
-            }
-            if (data[0] == sensorsStruct::answerCommand::FAIL)
-            {
-                Serial.println("Fail command");
-            }
-            sensorsEspNow[indexCurrent].waitAnswer = false;
-        }
-        else
-        {
-            if (sensorsEspNow[indexCurrent].typeDevice == sensorsStruct::typeDevices::PlateDriver)
-            {
-                Serial.print("Plate drive  -> online");
+                Serial.println(myMsgSensor.valueData);
             }
         }
     }
@@ -165,7 +191,11 @@ void sendCommandPowerOn()
     if (indexPlateDrive == -1)
         return;
     sensorsEspNow[indexPlateDrive].waitAnswer = true;
-    uint8_t bsSend[1] = {dataStructPlateDriver::commandList::POWER_ON};
+    myMsgSensor.device = sensorsStruct::typeDevices::PlateDriver;
+    myMsgSensor.msgType = msgStruct::msgTypes::Command;
+    itoa(dataStructPlateDriver::POWER_ON, myMsgSensor.valueData, 10);
+    uint8_t bsSend[sizeof(myMsgSensor)];
+    memcpy(bsSend, &myMsgSensor, sizeof(myMsgSensor));
     ESPNow.send_message(sensorsEspNow[indexPlateDrive].macAddr, bsSend, sizeof(bsSend));
     Serial.println("Send Power On");
 }
@@ -205,7 +235,7 @@ void addSensorEspNow(const uint8_t *mac_addr, sensorsStruct::typeDevices typeDev
         sensorsEspNow[countSensorsEspNow].macAddr[x] = mac_addr[x];
     }
     sensorsEspNow[countSensorsEspNow].typeDevice = typeDevice;
-    //sensorsEspNow[countSensorsEspNow].init = true;
     ESPNow.add_peer(sensorsEspNow[countSensorsEspNow].macAddr);
     countSensorsEspNow++;
+    Serial.println("Add sensor");
 }
