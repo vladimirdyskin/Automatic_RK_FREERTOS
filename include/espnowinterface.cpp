@@ -134,6 +134,13 @@ void onRecvEspNow(const uint8_t *mac_addr, const uint8_t *data, int data_len)
                 myMsgSensor.msgType = msgStruct::msgTypes::Connect;
                 strcpy(myMsgSensor.valueData, "Hi");
             }
+            if (myMsgSensor.device == sensorsStruct::typeDevices::TempSensor)
+            {
+                myMsgSensor.device = sensorsStruct::typeDevices::TempSensor;
+                myMsgSensor.msgType = msgStruct::msgTypes::Connect;
+                strcpy(myMsgSensor.valueData, "Hi");
+            }
+
             uint8_t bsSend[sizeof(myMsgSensor)];
             memcpy(bsSend, &myMsgSensor, sizeof(myMsgSensor));
             ESPNow.send_message(sensorsEspNow[countSensorsEspNow - 1].macAddr, bsSend, sizeof(bsSend));
@@ -146,18 +153,6 @@ void onRecvEspNow(const uint8_t *mac_addr, const uint8_t *data, int data_len)
             if (myMsgSensor.device == sensorsStruct::typeDevices::PlateDriver)
             {
                 int currentState = atoi(myMsgSensor.valueData);
-                // if (strcmp(myMsgSensor.valueData, "Notinit") != 0)
-                // {
-                //     myMsgSensor.device = sensorsStruct::typeDevices::PlateDriver;
-                //     myMsgSensor.msgType = msgStruct::msgTypes::Connect;
-                //     strcpy(myMsgSensor.valueData, "Hi");
-                //     uint8_t bsSend[sizeof(myMsgSensor)];
-                //     memcpy(bsSend, &myMsgSensor, sizeof(myMsgSensor));
-                //     ESPNow.send_message(sensorsEspNow[countSensorsEspNow - 1].macAddr, bsSend, sizeof(bsSend));
-                //     Serial.println("Plate reinit");
-                // }
-                // else
-                // {
                 switch (currentState)
                 {
                 case dataStructPlateDriver::commandList::NONE:
@@ -197,11 +192,6 @@ void onRecvEspNow(const uint8_t *mac_addr, const uint8_t *data, int data_len)
                     Serial.println("POWER IS 2000");
                     break;
                 }
-                Serial.println(currentState);
-                Serial.println("Plate is online");
-
-                //swit
-                // }
             }
         }
         if (myMsgSensor.msgType == msgStruct::msgTypes::Answer)
