@@ -4,7 +4,6 @@
 #include <WiFi.h>
 #include "ESPNowW.h"
 
-extern void sendCommandPowerOn();
 enum but
 {
     butCloseMain,
@@ -18,7 +17,7 @@ enum but
 const int countButtons = 10;
 lv_obj_t *buttons[countButtons];
 
-lv_obj_t *buttonSendPowerOn;
+lv_obj_t *buttonSendPowerOn, *buttonSendPowerOff;
 
 lv_obj_t *win;
 lv_obj_t *txtTemp[4], *txtIpAdress, *txtSignalStrech;
@@ -26,12 +25,14 @@ lv_obj_t *screenMain, *screenRect, *screenSettingsWiFi, *screenSettings;
 extern float tempValue[5];
 extern void publishValueMqtt();
 
+void sendCommandSetPower(int Power);
+extern void sendCommandPowerOn(bool On);
+
 void lv_ex_win_main(void);
 void lv_ex_win_1_peregon(void);
 void lv_ex_win_settings(void);
 void lv_ex_win_settingswifi(void);
 void TaskUpdateValue(void *pvParameters);
-static void my_event_poweron(lv_obj_t *obj, lv_event_t event);
 
 void tftSetup()
 {
@@ -114,6 +115,14 @@ static void my_event_cb(lv_obj_t *obj, lv_event_t event)
         {
             lv_scr_load(screenMain);
         }
+        if (obj == buttonSendPowerOff)
+        {
+            sendCommandPowerOn(false);
+        }
+        if (obj == buttonSendPowerOn)
+        {
+            sendCommandPowerOn(true);
+        }
         break;
 
     case LV_EVENT_SHORT_CLICKED:
@@ -133,13 +142,18 @@ static void my_event_cb(lv_obj_t *obj, lv_event_t event)
     } /*Etc.*/
 }
 
-static void my_event_poweron(lv_obj_t *obj, lv_event_t event)
+static const char *btnm_map[] = {"200", "500", "800", "1000", "\n",
+                                 "1300", "1600", "1800", "2000", ""};
+
+static void event_powerChange(lv_obj_t *obj, lv_event_t event)
 {
-    switch (event)
+    if (event == LV_EVENT_VALUE_CHANGED)
     {
-    case LV_EVENT_PRESSED:
-        sendCommandPowerOn();
-        break;
+        const char *txt = lv_btnm_get_active_btn_text(obj);
+        int powerValue = atoi(txt);
+        sendCommandSetPower(powerValue);
+
+        //printf("%s was pressed\n", txt);
     }
 }
 
@@ -180,8 +194,26 @@ void lv_ex_win_main(void)
     lv_img_set_src(img1, LV_SYMBOL_POWER);
     lv_obj_align(img1, NULL, LV_ALIGN_CENTER, 0, 0);
 
-    lv_obj_set_event_cb(buttonSendPowerOn, my_event_poweron);
-    lv_obj_set_pos(buttonSendPowerOn, 100, 90);
+    lv_obj_set_event_cb(buttonSendPowerOn, my_event_cb);
+    lv_obj_set_pos(buttonSendPowerOn, 50, 90);
+    lv_obj_set_size(buttonSendPowerOn, 40, 40);
+
+    buttonSendPowerOff = lv_btn_create(win, NULL);
+    img1 = lv_img_create(buttonSendPowerOff, NULL);
+    lv_img_set_src(img1, LV_SYMBOL_STOP);
+    lv_obj_align(img1, NULL, LV_ALIGN_CENTER, 0, 0);
+
+    lv_obj_set_event_cb(buttonSendPowerOff, my_event_cb);
+    lv_obj_set_pos(buttonSendPowerOff, 100, 90);
+    lv_obj_set_size(buttonSendPowerOff, 40, 40);
+
+    lv_obj_t *btnm1 = lv_btnm_create(win, NULL);
+    lv_btnm_set_map(btnm1, btnm_map);
+    //lv_btnm_set_btn_width(btnm1, 10, 2); /*Make "Action1" twice as wide as "Action2"*/
+    lv_obj_align(btnm1, NULL, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_event_cb(btnm1, event_powerChange);
+    lv_obj_set_pos(btnm1, 250, 10);
+    lv_obj_set_size(btnm1, 200, 100);
 }
 
 void lv_ex_win_settingswifi(void)
