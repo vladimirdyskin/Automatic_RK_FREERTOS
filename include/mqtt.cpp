@@ -4,8 +4,9 @@
 #include <PubSubClient.h>
 #include <string.h>
 #define TOKEN "BBFF-gChPC9q5KqfjEU2LYyjbAKotTlyKcm" // Put your Ubidots' TOKEN
-#define MQTT_CLIENT_NAME "ESP32"                    // MQTT client Name, please enter your own 8-12 alphanumeric character ASCII string; \
-                                                    //it should be a random and unique ascii string and different from all other device
+#define MQTT_CLIENT_NAME "ESP32"                    
+// MQTT client Name, please enter your own 8-12 alphanumeric character ASCII string;
+//it should be a random and unique ascii string and different from all other device
 
 /****************************************
  * Define Constants
