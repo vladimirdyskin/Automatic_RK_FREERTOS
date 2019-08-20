@@ -28,8 +28,8 @@ void setup()
     Serial.begin(115200);
     vTaskDelay(100);
     tftSetup();
-    setupMqtt();
     setupEspNow();
+    setupMqtt();
 
     sensors.setWaitForConversion(false);
     sensors.begin();
