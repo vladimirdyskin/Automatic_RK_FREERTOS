@@ -7,7 +7,7 @@
 #include "ESPNowW.h"
 #include "Arduino.h"
 
-#define DEBUGESPNOW 1
+#define DEBUGESPNOW 0
 
 struct sensorsStruct
 {
@@ -51,6 +51,7 @@ struct __attribute__((packed)) dataStructTempSensor
     float temp;
 };
 dataStructTempSensor myDataTempSensor;
+extern float tempValue[5];
 
 struct __attribute__((packed)) dataStructPlateDriver
 {
@@ -81,12 +82,9 @@ int searchSensorEspNow(const uint8_t *mac_addr);
 void addSensorEspNow(const uint8_t *mac_addr, sensorsStruct::typeDevices typeDevice);
 void sendCommandPowerOn(bool On);
 void sendCommandSetPower(int Power);
-//int indexPlateDrive = -1;
 
-// void TaskAutoOnOff(void *pvParameters);
 void TaskAutoOnOffControl(void *pvParameters);
-// bool initOnOff = false;
-// TaskHandle_t handleAutoOnOff;
+
 
 void setupEspNow()
 {
@@ -251,6 +249,8 @@ void onRecvEspNow(const uint8_t *mac_addr, const uint8_t *data, int data_len)
             {
                 memcpy(&myDataTempSensor, &myMsgSensor.valueData, sizeof(myMsgSensor));
                 tempValue[1] = myDataTempSensor.temp;
+                Serial.print("Temp is ");
+                Serial.println(tempValue[1]);
             }
         }
     }
@@ -268,6 +268,11 @@ void onSendEspNowCallBack(const uint8_t *mac_addr, esp_now_send_status_t status)
         Serial.print("Last Packet Send Status: ");
         Serial.println(status == 0 ? "Delivery Success" : "Delivery Fail");
     }
+    else
+    {
+        Serial.println(status == 0 ? "Delivery Success" : "Delivery Fail");
+    }
+    
 }
 
 void sendCommandPowerOn(bool On)
