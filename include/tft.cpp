@@ -17,16 +17,19 @@ enum but
 const int countButtons = 10;
 lv_obj_t *buttons[countButtons];
 
-lv_obj_t *buttonSendPowerOn, *buttonSendPowerOff;
+lv_obj_t *buttonSendPowerOn, *buttonSendPowerOff, *buttonRect, *buttonTelo;
 
 lv_obj_t *win;
-lv_obj_t *txtTemp[4], *txtIpAdress, *txtSignalStrech;
+lv_obj_t *txtTemp[4], *txtIpAdress, *txtSignalStrech, *txtState, *imgPower;
 lv_obj_t *screenMain, *screenRect, *screenSettingsWiFi, *screenSettings;
 extern float tempValue[5];
 extern void publishValueMqtt();
 
 void sendCommandSetPower(int Power);
 extern void sendCommandPowerOn(bool On);
+
+extern void RectStart();
+extern int stateRect;
 
 void lv_ex_win_main(void);
 void lv_ex_win_1_peregon(void);
@@ -123,6 +126,14 @@ static void my_event_cb(lv_obj_t *obj, lv_event_t event)
         {
             sendCommandPowerOn(true);
         }
+        if(obj == buttonRect)
+        {
+            RectStart();
+        }
+        if(obj == buttonTelo)
+        {
+            stateRect = 3;
+        }
         break;
 
     case LV_EVENT_SHORT_CLICKED:
@@ -196,7 +207,7 @@ void lv_ex_win_main(void)
 
     lv_obj_set_event_cb(buttonSendPowerOn, my_event_cb);
     lv_obj_set_pos(buttonSendPowerOn, 50, 90);
-    lv_obj_set_size(buttonSendPowerOn, 40, 40);
+    lv_obj_set_size(buttonSendPowerOn, 50, 40);
 
     buttonSendPowerOff = lv_btn_create(win, NULL);
     img1 = lv_img_create(buttonSendPowerOff, NULL);
@@ -204,8 +215,32 @@ void lv_ex_win_main(void)
     lv_obj_align(img1, NULL, LV_ALIGN_CENTER, 0, 0);
 
     lv_obj_set_event_cb(buttonSendPowerOff, my_event_cb);
-    lv_obj_set_pos(buttonSendPowerOff, 100, 90);
-    lv_obj_set_size(buttonSendPowerOff, 40, 40);
+    lv_obj_set_pos(buttonSendPowerOff, 120, 90);
+    lv_obj_set_size(buttonSendPowerOff, 50, 40);
+
+    buttonRect = lv_btn_create(win, NULL);
+    img1 = lv_img_create(buttonRect, NULL);
+    lv_img_set_src(img1, LV_SYMBOL_REFRESH);
+    lv_obj_align(img1, NULL, LV_ALIGN_CENTER, 0, 0);
+
+    lv_obj_set_event_cb(buttonRect, my_event_cb);
+    lv_obj_set_pos(buttonRect, 50, 150);
+    lv_obj_set_size(buttonRect, 50, 40);
+
+
+    buttonTelo = lv_btn_create(win, NULL);
+    img1 = lv_img_create(buttonTelo, NULL);
+    lv_img_set_src(img1, LV_SYMBOL_UPLOAD);
+    lv_obj_align(img1, NULL, LV_ALIGN_CENTER, 0, 0);
+
+    lv_obj_set_event_cb(buttonTelo, my_event_cb);
+    lv_obj_set_pos(buttonTelo, 120, 150);
+    lv_obj_set_size(buttonTelo, 40, 40);
+
+     
+    txtState = lv_label_create(win, NULL);
+    lv_label_set_text(txtState, "");
+    lv_obj_set_pos(txtState, 250, 150);
 
     lv_obj_t *btnm1 = lv_btnm_create(win, NULL);
     lv_btnm_set_map(btnm1, btnm_map);

@@ -3,7 +3,7 @@
 
 #include <PubSubClient.h>
 #include <string.h>
-#define TOKEN "BBFF-gChPC9q5KqfjEU2LYyjbAKotTlyKcm" // Put your Ubidots' TOKEN
+#define TOKEN "BBFF-EXM5xCQkdWU5nMvNxlxhcm1lV88Dya" // Put your Ubidots' TOKEN
 #define MQTT_CLIENT_NAME "ESP32"                    
 // MQTT client Name, please enter your own 8-12 alphanumeric character ASCII string;
 //it should be a random and unique ascii string and different from all other device
@@ -11,12 +11,12 @@
 /****************************************
  * Define Constants
  ****************************************/
-#define TEMP1 "Temp1"     // Assing the variable label
-#define TEMP2 "Temp2"     // Assing the variable label
+#define TEMP1 "temp1"     // Assing the variable label
+#define TEMP2 "temp2"     // Assing the variable label
 #define VBAT "VBat"       // Assing the variable label
 #define DEVICE_LABEL "rk" // Assig the device label
 
-char mqttBroker[] = "industrial.api.ubidots.com";
+char mqttBroker[] = "things.ubidots.com";
 char payload[100];
 char topic[150];
 // Space to store values to send
@@ -89,14 +89,6 @@ void publishValueMqtt()
 
     /* 4 is mininum width, 2 is precision; float value is copied onto str_sensor*/
     dtostrf(tempValue[1], 4, 2, str_sensor);
-    sprintf(payload, "%s {\"value\": %s}}", payload, str_sensor); // Adds the value
-    client.publish(topic, payload);
-
-    sprintf(payload, "%s", "");         // Cleans the payload
-    sprintf(payload, "{\"%s\":", VBAT); // Adds the variable label
-
-    /* 4 is mininum width, 2 is precision; float value is copied onto str_sensor*/
-    dtostrf(vbat, 4, 2, str_sensor);
     sprintf(payload, "%s {\"value\": %s}}", payload, str_sensor); // Adds the value
     client.publish(topic, payload);
 

@@ -84,7 +84,12 @@ void sendCommandPowerOn(bool On);
 void sendCommandSetPower(int Power);
 
 void TaskAutoOnOffControl(void *pvParameters);
-
+TaskHandle_t rectTask;
+bool rectificationExec = false;
+    int stateRect = 0;
+    // 0 - razgon  1 - stable  2 - golovi 3 - telo 4 - end
+void RectStart();
+void TaskRectControl(void *pvParameters);
 
 void setupEspNow()
 {
@@ -251,6 +256,11 @@ void onRecvEspNow(const uint8_t *mac_addr, const uint8_t *data, int data_len)
                 tempValue[1] = myDataTempSensor.temp;
                 Serial.print("Temp is ");
                 Serial.println(tempValue[1]);
+                if(!rectificationExec && (tempValue[1] > 99.8))
+                {
+                    sendCommandPowerOn(false);
+                }
+                
             }
         }
     }
@@ -275,6 +285,146 @@ void onSendEspNowCallBack(const uint8_t *mac_addr, esp_now_send_status_t status)
     
 }
 
+
+void RectStart()
+{
+    if(!rectificationExec)
+    {
+        if(rectTask != NULL)
+        {
+            sendCommandPowerOn(true);
+            delay(2000);
+            rectificationExec = true;
+            stateRect = 0;
+            vTaskResume(rectTask);
+        }
+        else
+        {
+            sendCommandPowerOn(true);
+            delay(2000);
+            rectificationExec = true;
+            stateRect = 0;
+            xTaskCreate(TaskRectControl, "control rect", 8000, NULL, 2, &rectTask);
+        }
+    }
+    else
+    {
+        if(rectTask != NULL)
+        {
+            sendCommandPowerOn(false);
+            delay(2000);
+            rectificationExec = false;
+            vTaskSuspend(rectTask);
+            stateRect = 0;
+        }
+    }
+}
+
+void TaskRectControl(void *pvParameters)
+{
+    (void)pvParameters;
+    for(;;)
+    {
+        vTaskDelay(5 * (1000 / portTICK_PERIOD_MS));
+        Serial.println("Task rectification exec");
+        switch (stateRect)
+        {       
+        case 0:
+            if(myDataPlateDriver.currentState)
+            {
+                if(myDataPlateDriver.currentPower == 2000)
+                {
+                    Serial.println("State Razgon");
+                    if(tempValue[1] > 55)
+                    {
+                        stateRect = 1;
+                        sendCommandSetPower(800);
+                        vTaskDelay(10 * (1000 / portTICK_PERIOD_MS));
+                    }
+                }
+                else
+                {
+                    sendCommandSetPower(2000);
+                    vTaskDelay(10 * (1000 / portTICK_PERIOD_MS));
+                }                
+            }
+            break;
+        case 1:
+            if(myDataPlateDriver.currentState)
+            {
+                if(myDataPlateDriver.currentPower == 800)
+                {
+                    Serial.println("State Stable");
+                    if(tempValue[1] > 68)
+                    {
+                        stateRect = 2;
+                        sendCommandSetPower(1000);
+                        vTaskDelay(10 * (1000 / portTICK_PERIOD_MS));
+                    }
+                }
+                else
+                {
+                    sendCommandSetPower(1000);
+                    vTaskDelay(10 * (1000 / portTICK_PERIOD_MS));
+                }                
+            }
+            break;
+        case 2:
+            /* golovi */
+            if(myDataPlateDriver.currentState)
+            {
+                if(myDataPlateDriver.currentPower == 1000)
+                {
+                    Serial.println("State Golovi");
+                    if(tempValue[1] > 76)
+                    {
+                        stateRect = 3;
+                        sendCommandSetPower(1300);
+                        vTaskDelay(10 * (1000 / portTICK_PERIOD_MS));
+                    }
+                }
+                else
+                {
+                    sendCommandSetPower(1000);
+                    vTaskDelay(10 * (1000 / portTICK_PERIOD_MS));
+                }                
+            }
+            break;
+        case 3:
+            /* telo */
+            if(myDataPlateDriver.currentState)
+            {
+                if(myDataPlateDriver.currentPower == 1300)
+                {
+                    Serial.println("State Telo");
+                    if(tempValue[1] > 78)
+                    {
+                        stateRect = 4;
+                        //sendCommandPowerOn(false);
+                    }
+                }
+                else
+                {
+                    sendCommandSetPower(1300);
+                }                
+            }
+            break;
+        case 4:
+            if(myDataPlateDriver.currentState)
+            {
+                Serial.println("State End");
+                sendCommandPowerOn(false);
+                vTaskSuspend(rectTask);
+            }
+            break;
+        }
+
+
+
+    }
+    vTaskDelete(NULL);
+}
+
 void sendCommandPowerOn(bool On)
 {
     if (myDataPlateDriver.indexPlateDrive == -1)
@@ -286,11 +436,17 @@ void sendCommandPowerOn(bool On)
     {
         itoa(dataStructPlateDriver::POWER_ON, myMsgSensor.valueData, 10);
         Serial.println("Send Power On");
+        myDataPlateDriver.currentState = dataStructPlateDriver::POWER_ON;
+        myDataPlateDriver.currentPower = 1300;
     }
     else
     {
         itoa(dataStructPlateDriver::POWER_OFF, myMsgSensor.valueData, 10);
         Serial.println("Send Power Off");
+        stateRect = 0;
+        rectificationExec = false;
+        myDataPlateDriver.currentState = dataStructPlateDriver::POWER_OFF;
+        myDataPlateDriver.currentPower = 0;
     }
     sensorsEspNow[myDataPlateDriver.indexPlateDrive].waitAnswer = true;
     myMsgSensor.device = sensorsStruct::typeDevices::PlateDriver;
@@ -392,6 +548,7 @@ void sendCommandSetPower(int Power)
     ESPNow.send_message(sensorsEspNow[myDataPlateDriver.indexPlateDrive].macAddr, bsSend, sizeof(bsSend));
     Serial.print("Send Set Power ");
     Serial.println(Power);
+    myDataPlateDriver.currentPower = Power;
 }
 
 int searchSensorEspNow(const uint8_t *mac_addr)
