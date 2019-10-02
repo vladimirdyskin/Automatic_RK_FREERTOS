@@ -21,7 +21,7 @@ void TaskTemp(void *pvParameters);
 void TaskBlink(void *pvParameters);
 void TaskPrintTemp(void *pvParameters);
 float tempValue[5];
-
+float flowAll, flowValue;
 void setup()
 {
     // put your setup code here, to run once:

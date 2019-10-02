@@ -18,6 +18,7 @@ const int countButtons = 10;
 lv_obj_t *buttons[countButtons];
 
 lv_obj_t *buttonSendPowerOn, *buttonSendPowerOff, *buttonRect, *buttonTelo;
+lv_obj_t *switchFlow;
 
 lv_obj_t *win;
 lv_obj_t *txtTemp[4], *txtIpAdress, *txtSignalStrech, *txtState, *imgPower;
@@ -30,6 +31,7 @@ extern void sendCommandPowerOn(bool On);
 
 extern void RectStart();
 extern int stateRect;
+extern void sendCommandFlowOpen(bool On);
 
 void lv_ex_win_main(void);
 void lv_ex_win_1_peregon(void);
@@ -150,6 +152,13 @@ static void my_event_cb(lv_obj_t *obj, lv_event_t event)
 
     case LV_EVENT_RELEASED:
         break;
+    case LV_EVENT_VALUE_CHANGED:
+        if(obj == switchFlow)
+        {
+            //Serial.println(printf("State: %s\n", lv_sw_get_state(switchFlow) ? "On" : "Off"));
+            sendCommandFlowOpen(lv_sw_get_state(switchFlow));
+        }
+        break;        
     } /*Etc.*/
 }
 
@@ -235,9 +244,13 @@ void lv_ex_win_main(void)
 
     lv_obj_set_event_cb(buttonTelo, my_event_cb);
     lv_obj_set_pos(buttonTelo, 120, 150);
-    lv_obj_set_size(buttonTelo, 40, 40);
+    lv_obj_set_size(buttonTelo, 50, 40);
 
-     
+    switchFlow = lv_sw_create(win, NULL);
+    lv_obj_set_pos(switchFlow, 120, 200);
+    lv_obj_set_size(switchFlow, 70, 40);
+    lv_obj_set_event_cb(switchFlow, my_event_cb);
+
     txtState = lv_label_create(win, NULL);
     lv_label_set_text(txtState, "");
     lv_obj_set_pos(txtState, 250, 150);

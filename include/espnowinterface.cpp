@@ -15,7 +15,8 @@ struct sensorsStruct
     {
         NotIdent = 0,
         TempSensor = 1,
-        PlateDriver = 2
+        PlateDriver = 2,
+        FlowDriver = 3
     };
     uint8_t macAddr[6] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     typeDevices typeDevice = NotIdent;
@@ -68,13 +69,30 @@ struct __attribute__((packed)) dataStructPlateDriver
         SET_POWER_1600 = 19,
         SET_POWER_1800 = 20,
         SET_POWER_2000 = 21,
+        AUTO_OFF = 22,
     };
     int currentPower;
     bool currentState;
-    int indexPlateDrive = -1;
+
     //commandList command;
 };
 dataStructPlateDriver myDataPlateDriver;
+int indexPlateDrive = -1;
+
+struct __attribute__((packed)) dataStructFlowDriver
+{
+  enum commandList
+  {
+    FLOW_ON = 31,
+    FLOW_OFF = 32,
+  };
+  int currentState = FLOW_OFF;
+  float FlowAll;
+  float FlowValue;
+};
+dataStructFlowDriver myDataFlowDriver;
+int indexFlowDriver = -1;
+extern float flowAll, flowValue;
 
 void onRecvEspNow(const uint8_t *mac_addr, const uint8_t *data, int data_len);
 void onSendEspNowCallBack(const uint8_t *mac_addr, esp_now_send_status_t status);
@@ -83,13 +101,16 @@ void addSensorEspNow(const uint8_t *mac_addr, sensorsStruct::typeDevices typeDev
 void sendCommandPowerOn(bool On);
 void sendCommandSetPower(int Power);
 
-void TaskAutoOnOffControl(void *pvParameters);
+//void TaskAutoOnOffControl(void *pvParameters);
 TaskHandle_t rectTask;
 bool rectificationExec = false;
     int stateRect = 0;
     // 0 - razgon  1 - stable  2 - golovi 3 - telo 4 - end
 void RectStart();
 void TaskRectControl(void *pvParameters);
+
+
+void sendCommandFlowOpen(bool On);
 
 void setupEspNow()
 {
@@ -111,7 +132,7 @@ void setupEspNow()
     ESPNow.reg_recv_cb(onRecvEspNow);
     ESPNow.reg_send_cb(onSendEspNowCallBack);
 
-    xTaskCreate(TaskAutoOnOffControl, "control onoff", 8000, NULL, 2, NULL);
+//    xTaskCreate(TaskAutoOnOffControl, "control onoff", 8000, NULL, 2, NULL);
 }
 
 void onRecvEspNow(const uint8_t *mac_addr, const uint8_t *data, int data_len)
@@ -146,14 +167,18 @@ void onRecvEspNow(const uint8_t *mac_addr, const uint8_t *data, int data_len)
             addSensorEspNow(mac_addr, myMsgSensor.device);
             if (myMsgSensor.device == sensorsStruct::typeDevices::PlateDriver)
             {
-                myDataPlateDriver.indexPlateDrive = countSensorsEspNow - 1;
                 myDataPlateDriver.currentState = false;
                 myDataPlateDriver.currentPower = 0;
 
-                myMsgSensor.device = sensorsStruct::typeDevices::PlateDriver;
                 myMsgSensor.msgType = msgStruct::msgTypes::Connect;
                 strcpy(myMsgSensor.valueData, "Hi");
             }
+            if (myMsgSensor.device == sensorsStruct::typeDevices::FlowDriver)
+            {
+                myMsgSensor.msgType = msgStruct::msgTypes::Connect;
+                strcpy(myMsgSensor.valueData, "Hi");
+            }
+
             uint8_t bsSend[sizeof(myMsgSensor)];
             memcpy(bsSend, &myMsgSensor, sizeof(myMsgSensor));
             ESPNow.send_message(sensorsEspNow[countSensorsEspNow - 1].macAddr, bsSend, sizeof(bsSend));
@@ -161,6 +186,12 @@ void onRecvEspNow(const uint8_t *mac_addr, const uint8_t *data, int data_len)
         if (myMsgSensor.device == sensorsStruct::typeDevices::TempSensor)
         {
             addSensorEspNow(mac_addr, myMsgSensor.device);
+            Serial.println("Reg Temp sensor");
+        }
+        if (myMsgSensor.device == sensorsStruct::typeDevices::FlowDriver)
+        {
+            addSensorEspNow(mac_addr, myMsgSensor.device);
+            Serial.println("Reg Flow sensor");
         }
     }
     else
@@ -173,7 +204,7 @@ void onRecvEspNow(const uint8_t *mac_addr, const uint8_t *data, int data_len)
                 switch (currentState)
                 {
                 case dataStructPlateDriver::commandList::NONE:
-                    myDataPlateDriver.indexPlateDrive = countSensorsEspNow - 1;
+                    indexPlateDrive = indexCurrent;
                     myDataPlateDriver.currentState = false;
                     myDataPlateDriver.currentPower = 0;
 
@@ -230,7 +261,21 @@ void onRecvEspNow(const uint8_t *mac_addr, const uint8_t *data, int data_len)
                     myDataPlateDriver.currentPower = 2000;
                     Serial.println("POWER IS 2000");
                     break;
+                case dataStructPlateDriver::commandList::AUTO_OFF:
+                    Serial.println("PLATE IS AUTOOFF PROC");
+                    break;
                 }
+            }
+            if (myMsgSensor.device == sensorsStruct::typeDevices::FlowDriver)
+            {
+                indexFlowDriver = indexCurrent;
+                myMsgSensor.device = sensorsStruct::typeDevices::FlowDriver;
+                myMsgSensor.msgType = msgStruct::msgTypes::Connect;
+                strcpy(myMsgSensor.valueData, "Hi");
+                uint8_t bsSend[sizeof(myMsgSensor)];
+                memcpy(bsSend, &myMsgSensor, sizeof(myMsgSensor));
+                ESPNow.send_message(sensorsEspNow[indexCurrent].macAddr, bsSend, sizeof(bsSend));
+                Serial.println("Flow reinit");
             }
         }
         if (myMsgSensor.msgType == msgStruct::msgTypes::Answer)
@@ -247,6 +292,18 @@ void onRecvEspNow(const uint8_t *mac_addr, const uint8_t *data, int data_len)
                     Serial.println("Command fail");
                 }
             }
+            if (myMsgSensor.device == sensorsStruct::typeDevices::FlowDriver)
+            {
+                int commandResult = atoi(myMsgSensor.valueData);
+                if (commandResult == sensorsStruct::answerCommand::OK)
+                {
+                    Serial.println("Command flow succes");
+                }
+                if (commandResult == sensorsStruct::answerCommand::FAIL)
+                {
+                    Serial.println("Command flow fail");
+                }
+            }
         }
         if (myMsgSensor.msgType == msgStruct::msgTypes::Data)
         {
@@ -259,8 +316,17 @@ void onRecvEspNow(const uint8_t *mac_addr, const uint8_t *data, int data_len)
                 if(!rectificationExec && (tempValue[1] > 99.8))
                 {
                     sendCommandPowerOn(false);
-                }
-                
+                }                
+            }
+            if (myMsgSensor.device == sensorsStruct::typeDevices::FlowDriver)
+            {
+                memcpy(&myDataFlowDriver, &myMsgSensor.valueData, sizeof(myMsgSensor));
+                flowAll = myDataFlowDriver.FlowAll;
+                flowValue = myDataFlowDriver.FlowValue;
+                Serial.print("FlowAll is ");
+                Serial.println(flowAll);
+                Serial.print("FlowValue is ");
+                Serial.println(flowValue);
             }
         }
     }
@@ -427,7 +493,7 @@ void TaskRectControl(void *pvParameters)
 
 void sendCommandPowerOn(bool On)
 {
-    if (myDataPlateDriver.indexPlateDrive == -1)
+    if (indexPlateDrive == -1)
     {
         Serial.println("Not regist Plate");
         return;
@@ -448,71 +514,76 @@ void sendCommandPowerOn(bool On)
         myDataPlateDriver.currentState = dataStructPlateDriver::POWER_OFF;
         myDataPlateDriver.currentPower = 0;
     }
-    sensorsEspNow[myDataPlateDriver.indexPlateDrive].waitAnswer = true;
+    sensorsEspNow[indexPlateDrive].waitAnswer = true;
     myMsgSensor.device = sensorsStruct::typeDevices::PlateDriver;
     myMsgSensor.msgType = msgStruct::msgTypes::Command;
     uint8_t bsSend[sizeof(myMsgSensor)];
     memcpy(bsSend, &myMsgSensor, sizeof(myMsgSensor));
-    ESPNow.send_message(sensorsEspNow[myDataPlateDriver.indexPlateDrive].macAddr, bsSend, sizeof(bsSend));
+    ESPNow.send_message(sensorsEspNow[indexPlateDrive].macAddr, bsSend, sizeof(bsSend));
 }
 
-void TaskAutoOnOffControl(void *pvParameters)
-{
-    (void)pvParameters;
-    int prevPower = 0;
-    for (;;)
-    {
-        vTaskDelay(3600 * (1000 / portTICK_PERIOD_MS));
-        if (myDataPlateDriver.currentState)
-        {
-            Serial.println("Run auto onoff");
-            switch (myDataPlateDriver.currentPower)
-            {
-            case 200:
-                sendCommandSetPower(500);
-                prevPower = 200;
-                break;
-            case 500:
-                sendCommandSetPower(200);
-                prevPower = 500;
-                break;
-            case 800:
-                sendCommandSetPower(500);
-                prevPower = 800;
-                break;
-            case 1000:
-                sendCommandSetPower(800);
-                prevPower = 1000;
-                break;
-            case 1300:
-                sendCommandSetPower(1000);
-                prevPower = 1300;
-                break;
-            case 1600:
-                sendCommandSetPower(1300);
-                prevPower = 1600;
-                break;
-            case 1800:
-                sendCommandSetPower(1600);
-                prevPower = 1800;
-                break;
-            case 2000:
-                sendCommandSetPower(1800);
-                prevPower = 2000;
-                break;
-            }
-        }
-        vTaskDelay(2 * (1000 / portTICK_PERIOD_MS));
-        if (myDataPlateDriver.currentState)
-        {
-            Serial.println("Return power");
-            sendCommandSetPower(prevPower);
-        }
-    }
-}
+// void TaskAutoOnOffControl(void *pvParameters)
+// {
+//     (void)pvParameters;
+//     int prevPower = 0;
+//     for (;;)
+//     {
+//         vTaskDelay(3600 * (1000 / portTICK_PERIOD_MS));
+//         if (myDataPlateDriver.currentState)
+//         {
+//             Serial.println("Run auto onoff");
+//             switch (myDataPlateDriver.currentPower)
+//             {
+//             case 200:
+//                 sendCommandSetPower(500);
+//                 prevPower = 200;
+//                 break;
+//             case 500:
+//                 sendCommandSetPower(200);
+//                 prevPower = 500;
+//                 break;
+//             case 800:
+//                 sendCommandSetPower(500);
+//                 prevPower = 800;
+//                 break;
+//             case 1000:
+//                 sendCommandSetPower(800);
+//                 prevPower = 1000;
+//                 break;
+//             case 1300:
+//                 sendCommandSetPower(1000);
+//                 prevPower = 1300;
+//                 break;
+//             case 1600:
+//                 sendCommandSetPower(1300);
+//                 prevPower = 1600;
+//                 break;
+//             case 1800:
+//                 sendCommandSetPower(1600);
+//                 prevPower = 1800;
+//                 break;
+//             case 2000:
+//                 sendCommandSetPower(1800);
+//                 prevPower = 2000;
+//                 break;
+//             }
+//         }
+//         vTaskDelay(2 * (1000 / portTICK_PERIOD_MS));
+//         if (myDataPlateDriver.currentState)
+//         {
+//             Serial.println("Return power");
+//             sendCommandSetPower(prevPower);
+//         }
+//     }
+// }
 
 void sendCommandSetPower(int Power)
 {
+    if (indexPlateDrive == -1)
+    {
+        Serial.println("Not regist Plate");
+        return;
+    }
     switch (Power)
     {
     case 200:
@@ -540,15 +611,45 @@ void sendCommandSetPower(int Power)
         itoa(dataStructPlateDriver::SET_POWER_2000, myMsgSensor.valueData, 10);
         break;
     }
-    sensorsEspNow[myDataPlateDriver.indexPlateDrive].waitAnswer = true;
+    sensorsEspNow[indexPlateDrive].waitAnswer = true;
     myMsgSensor.device = sensorsStruct::typeDevices::PlateDriver;
     myMsgSensor.msgType = msgStruct::msgTypes::Command;
     uint8_t bsSend[sizeof(myMsgSensor)];
     memcpy(bsSend, &myMsgSensor, sizeof(myMsgSensor));
-    ESPNow.send_message(sensorsEspNow[myDataPlateDriver.indexPlateDrive].macAddr, bsSend, sizeof(bsSend));
+    ESPNow.send_message(sensorsEspNow[indexPlateDrive].macAddr, bsSend, sizeof(bsSend));
     Serial.print("Send Set Power ");
     Serial.println(Power);
     myDataPlateDriver.currentPower = Power;
+}
+
+void sendCommandFlowOpen(bool On)
+{
+    if (indexFlowDriver == -1)
+    {
+        Serial.println("Not regist Flow");
+        return;
+    }
+    String state;
+    if(On)
+    {
+        itoa(dataStructFlowDriver::FLOW_ON, myMsgSensor.valueData, 10);
+        myDataFlowDriver.currentState = dataStructFlowDriver::FLOW_ON;
+        state = "Open";
+    }
+    else
+    {
+        itoa(dataStructFlowDriver::FLOW_OFF, myMsgSensor.valueData, 10);
+        myDataFlowDriver.currentState = dataStructFlowDriver::FLOW_OFF;
+        state = "Close";
+    }
+    sensorsEspNow[indexFlowDriver].waitAnswer = true;
+    myMsgSensor.device = sensorsStruct::typeDevices::FlowDriver;
+    myMsgSensor.msgType = msgStruct::msgTypes::Command;
+    uint8_t bsSend[sizeof(myMsgSensor)];
+    memcpy(bsSend, &myMsgSensor, sizeof(myMsgSensor));
+    ESPNow.send_message(sensorsEspNow[indexFlowDriver].macAddr, bsSend, sizeof(bsSend));
+    Serial.print("Flow valve ");
+    Serial.println(state);
 }
 
 int searchSensorEspNow(const uint8_t *mac_addr)
@@ -587,19 +688,25 @@ void addSensorEspNow(const uint8_t *mac_addr, sensorsStruct::typeDevices typeDev
     }
     sensorsEspNow[countSensorsEspNow].typeDevice = typeDevice;
     ESPNow.add_peer(sensorsEspNow[countSensorsEspNow].macAddr);
-    countSensorsEspNow++;
     Serial.print("Add sensor ");
     if (typeDevice == sensorsStruct::PlateDriver)
     {
         Serial.println("Plate");
+        indexPlateDrive = countSensorsEspNow;
     }
     if (typeDevice == sensorsStruct::TempSensor)
     {
         Serial.println("Temp");
+    }
+    if (typeDevice == sensorsStruct::FlowDriver)
+    {
+        Serial.println("Flow");
+        indexFlowDriver = countSensorsEspNow;
     }
     char macStr[18];
     snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
              mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
     Serial.print("Mac address - ");
     Serial.println(macStr);
+    countSensorsEspNow++;
 }
