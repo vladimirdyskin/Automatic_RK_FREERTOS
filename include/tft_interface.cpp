@@ -9,6 +9,7 @@ Ticker tick;               /* timer for interrupt handler */
 TFT_eSPI tft = TFT_eSPI(); /* TFT instance */
 static lv_disp_buf_t disp_buf;
 static lv_color_t buf[LV_HOR_RES_MAX * 10];
+uint16_t calData[5] = {303, 3594, 1190, 2384, 3};
 
 uint16_t touchpad_y = 0, touchpad_x = 0;
 bool my_input_read(lv_indev_drv_t *drv, lv_indev_data_t *data);
@@ -27,7 +28,7 @@ void InitGraphics()
     lv_init();
     tft.begin();        /* TFT init */
     tft.setRotation(1); /* Landscape orientation */
-
+    tft.setTouch(calData);
     lv_disp_buf_init(&disp_buf, buf, NULL, LV_HOR_RES_MAX * 10);
 
     /*Initialize the display*/
